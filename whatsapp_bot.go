@@ -24,7 +24,7 @@ import (
 	"flag"
 	"bytes"
 	"net"
-
+	"bufio"
 	"regexp"
 )
 
@@ -130,6 +130,59 @@ func restartTimer(jid string) {
 	})
 }
 
+func GenerateAI(prompt string)(string) {
+	// Define the API URL
+	apiURL := "http://localhost:11434/api/generate"
+
+	// Create the payload
+	//prompt := "Hello, how are you?"
+	model := model//"llama3" // Specify the model name
+	payload := map[string]string{
+		"model":  model,
+		"prompt": prompt,
+	}
+
+	// Serialize payload to JSON
+	jsonPayload, err := json.Marshal(payload)
+	if err != nil {
+		log.Fatalf("Failed to marshal payload: %v", err)
+	}
+
+	// Make the POST request
+	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		log.Fatalf("Failed to make POST request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Handle streaming or non-standard JSON response
+	scanner := bufio.NewScanner(resp.Body)
+	fmt.Println("Response from Ollama:")
+	var response string
+	for scanner.Scan() {
+		line := scanner.Text()
+		var parsedLine map[string]interface{}
+		err := json.Unmarshal([]byte(line), &parsedLine)
+		if err != nil {
+			// If parsing fails, assume it's plain text
+			fmt.Println(line)
+			return "Internal AI error"
+		} else if resp, ok := parsedLine["response"]; ok {
+			// Print human-readable response if "response" key exists
+			response=response+fmt.Sprintf("%v", resp) //resp is an interface{} type, so I must convert to string
+		} else {
+			// Print entire JSON object as fallback
+			fmt.Print(parsedLine)
+			return "Internal AI error"
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		log.Fatalf("Error reading response: %v", err)
+		return "Fatal AI error"
+	}
+	return response//send back full response
+}
+
 func ChatAI(jid, prompt string) string {
 	apiURL := "http://localhost:11434/api/chat"
 
@@ -210,7 +263,8 @@ func HandleMessage(messageEvent *events.Message) {
 	}
 
 	if messageEvent.Info.Chat == recipientJID {
-		switch strings.ToLower(messageContent) {
+		msg:=messageContent
+		switch strings.ToLower(msg) {
 		case "help":
 			reply := "Hi, I'm an AI assistant! Ask me anything."
 			WhatsmeowClient.SendMessage(context.Background(), recipientJID, &waE2E.Message{
@@ -239,6 +293,12 @@ func HandleMessage(messageEvent *events.Message) {
 		default:
 			if strings.HasPrefix(messageContent, "LIVELLO"){
 				log.Print("Ignoring alarm from AQI")
+			}else if strings.HasPrefix(messageContent, "TITLE:"){
+				log.Print("Internal request: stock evaluation")
+				reply := GenerateAI(messageContent) //single generation task
+				WhatsmeowClient.SendMessage(context.Background(), recipientJID, &waE2E.Message{
+					Conversation: &reply,
+				})
 			}else{
 				log.Print("Internal request: "+messageContent)
 				reply := ChatAI(senderJID, messageContent) // Use sender's JID for history tracking
