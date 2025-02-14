@@ -34,7 +34,7 @@ var wa_contact, password, model string
 func main() {
 	flag.StringVar(&wa_contact, "number", "", "Whatsapp contact number without +, e.g., 393312345654")
 	flag.StringVar(&password, "password", "", "A secret word that allows any contact to receive sensor data")
-	flag.StringVar(&model, "model", "llama3", "Select a model, e.g., deepseek-r1")
+	flag.StringVar(&model, "model", "llama3", "Select a model, e.g.: deepseek-r1")
 	flag.Parse()
 
 	WhatsmeowClient = CreateClient()
@@ -180,6 +180,7 @@ func GenerateAI(prompt string)(string) {
 		log.Fatalf("Error reading response: %v", err)
 		return "Fatal AI error"
 	}
+	response = removeThinkTags(response)
 	return response//send back full response
 }
 
