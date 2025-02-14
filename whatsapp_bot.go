@@ -237,11 +237,15 @@ func HandleMessage(messageEvent *events.Message) {
 		case "status": //ignore. AQI Chatbot will reply
 			log.Print("Reading status, ignoring")
 		default:
-			log.Print("Internal request: "+messageContent)
-			reply := ChatAI(senderJID, messageContent) // Use sender's JID for history tracking
-			WhatsmeowClient.SendMessage(context.Background(), recipientJID, &waE2E.Message{
-				Conversation: &reply,
-			})
+			if strings.HasPrefix(messageContent, "LIVELLO"){
+				log.Print("Ignoring alarm from AQI")
+			}else{
+				log.Print("Internal request: "+messageContent)
+				reply := ChatAI(senderJID, messageContent) // Use sender's JID for history tracking
+				WhatsmeowClient.SendMessage(context.Background(), recipientJID, &waE2E.Message{
+					Conversation: &reply,
+				})
+			}
 		}
 	}else{ //external requests
 		if password != "" && strings.HasPrefix(messageContent, password) {
